@@ -6,12 +6,19 @@
 //
 
 import SwiftUI
+import Firebase
 
 @main
 struct bankappApp: App {
+    
+    init() {
+            // Configurar Firebase
+            FirebaseApp.configure()
+        }
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LoginView()
         }
     }
 }
