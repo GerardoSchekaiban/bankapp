@@ -171,8 +171,8 @@ struct SignUpView: View {
             } message: {
                 Text(viewModel.successMessage ?? "")
             }
-            .onChange(of: viewModel.isAuthenticated) { isAuth in
-                if isAuth {
+            .onChange(of: viewModel.isAuthenticated) { oldValue, newValue in
+                if newValue {
                     dismiss()
                 }
             }
