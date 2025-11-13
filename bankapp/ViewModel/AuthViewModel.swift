@@ -160,7 +160,7 @@ class AuthViewModel: ObservableObject {
         switch nsError.code {
         case 17007: // Email already in use
             showErrorMessage("Este email ya está registrado")
-        case 17008, 17011: // Invalid email or wrong password
+        case 17008: // Invalid email or wrong password
             showErrorMessage("Email o contraseña incorrectos")
         case 17026: // Weak password
             showErrorMessage("La contraseña debe tener al menos 6 caracteres")
