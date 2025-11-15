@@ -16,9 +16,19 @@ struct bankappApp: App {
             FirebaseApp.configure()
         }
     
+    @StateObject private var authViewModel = AuthViewModel()
+    
     var body: some Scene {
         WindowGroup {
-            LoginView()
+            Group {
+                if authViewModel.isAuthenticated {
+                    WelcomeCardView()
+                        .environmentObject(authViewModel)
+                } else {
+                    LoginView()
+                        .environmentObject(authViewModel)
+                }
+            }
         }
     }
 }

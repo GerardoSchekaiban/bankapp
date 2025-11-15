@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import FirebaseAuth
 
 @MainActor
 class AuthViewModel: ObservableObject {
@@ -48,6 +49,18 @@ class AuthViewModel: ObservableObject {
     
     var canSignUp: Bool {
         return isValidEmail && isValidPassword && passwordsMatch
+    }
+    
+    // Nombre para UI: usa displayName de Firebase si existe; si no, toma la parte antes del '@' del email; si no, 'Usuario'
+    var displayName: String {
+        if let name = Auth.auth().currentUser?.displayName, !name.isEmpty {
+            return name
+        }
+        if let email = currentUser?.email {
+            let base = email.split(separator: "@").first.map(String.init) ?? "Usuario"
+            return base.capitalized
+        }
+        return "Usuario"
     }
     
     // MARK: - Initialization

@@ -9,7 +9,7 @@ import SwiftUI
 
 struct LoginView: View {
     
-    @StateObject private var viewModel = AuthViewModel()
+    @EnvironmentObject private var viewModel: AuthViewModel
     @State private var showSignUp = false
     @State private var showForgotPassword = false
     
@@ -135,11 +135,8 @@ struct LoginView: View {
             }
             .sheet(isPresented: $showForgotPassword) {
                 ForgotPasswordView()
-            //}
-            //.fullScreenCover(isPresented: $viewModel.isAuthenticated) {
-              //  HomeView()
-                //    .environmentObject(viewModel)
             }
+            // Presentación del Home ahora la maneja bankappApp con authViewModel compartido
         }
     }
 }
@@ -227,4 +224,5 @@ extension View {
 
 #Preview {
     LoginView()
+        .environmentObject(AuthViewModel())
 }
