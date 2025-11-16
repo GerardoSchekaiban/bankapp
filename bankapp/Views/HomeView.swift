@@ -9,35 +9,24 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @StateObject private var bankViewModel = BankViewModel()
     
-    @State private var balance: Double = 12500.75
-    
-    struct Transaction: Identifiable, Codable {
-        let id = UUID()
-        let title: String
-        let amount: Double
-        let date: Date
-        let icon: String
-    }
-    
-    @State private var recentTransactions: [Transaction] = [
-        Transaction(title: "Pago Netflix", amount: -199.0, date: Date(), icon: "play.tv.fill"),
-        Transaction(title: "Depósito Nómina", amount: 8500.0, date: Date().addingTimeInterval(-86400), icon: "banknote.fill"),
-        Transaction(title: "Transferencia OXXO", amount: -150.0, date: Date().addingTimeInterval(-172800), icon: "cart.fill")
-    ]
-    
-    // Estado para transferencia
+    // Estados para sheets
     @State private var showTransferSheet = false
-    @State private var transferAmountText = ""
-    @State private var isProcessingTransfer = false
-    // Estado para depósito
     @State private var showDepositSheet = false
-    @State private var depositAmountText = ""
-    @State private var isProcessingDeposit = false
-    // Estado para retiro
     @State private var showWithdrawSheet = false
+    @State private var showCardSelector = false
+    
+    // Valores de inputs
+    @State private var transferAmountText = ""
+    @State private var depositAmountText = ""
     @State private var withdrawAmountText = ""
-    @State private var isProcessingWithdraw = false
+    @State private var recipientEmail = ""
+    @State private var transferDescription = ""
+    
+    // Tarjeta seleccionada para operaciones
+    @State private var selectedCardForOperation: Card?
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -51,369 +40,467 @@ struct HomeView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         // Encabezado
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Hola,")
-                                    .font(.title3)
-                                    .foregroundColor(.secondary)
-                                Text(authViewModel.displayName)
-                                    .font(.title)
-                                    .fontWeight(.bold)
-                            }
-                            Spacer()
-                            Button(action: {
-                                authViewModel.signOut()
-                            }) {
-                                HStack {
-                                    Image(systemName: "rectangle.portrait.and.arrow.forward")
-                                    Text("Cerrar sesión")
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .padding(.horizontal, 24)
+                        headerSection
                         
                         // Tarjeta de Saldo
-                        VStack(spacing: 12) {
-                            HStack {
-                                Text("Saldo disponible")
-                                    .font(.headline)
-                                Spacer()
-                            }
-                            HStack(alignment: .firstTextBaseline) {
-                                Text("$\(String(format: "%.2f", balance))")
-                                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                                Spacer()
-                            }
-                            HStack(spacing: 12) {
-                                actionButton(icon: "arrow.up.right.circle.fill", title: "Transferir") {
-                                    showTransferSheet = true
-                                }
-                                actionButton(icon: "plus.circle.fill", title: "Depositar") {
-                                    showDepositSheet = true
-                                }
-                                actionButton(icon: "minus.circle.fill", title: "Retirar") {
-                                    showWithdrawSheet = true
-                                }
-                            }
-                        }
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
-                        .padding(.horizontal, 24)
+                        balanceCard
                         
                         // Últimos movimientos
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("Últimos movimientos")
-                                .font(.headline)
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 12)
-                            ForEach(recentTransactions) { tx in
-                                HStack(spacing: 12) {
-                                    Image(systemName: tx.icon)
-                                        .foregroundColor(tx.amount >= 0 ? .green : .red)
-                                        .frame(width: 28)
-                                    VStack(alignment: .leading) {
-                                        Text(tx.title)
-                                            .fontWeight(.medium)
-                                        Text(dateFormatter.string(from: tx.date))
-                                            .foregroundColor(.secondary)
-                                            .font(.caption)
-                                    }
-                                    Spacer()
-                                    Text(formattedAmount(tx.amount))
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(tx.amount >= 0 ? .green : .red)
-                                }
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 10)
-                                Divider()
-                                    .padding(.leading, 64)
-                            }
-                        }
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.ultraThinMaterial)
-                        )
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 4)
-                        .padding(.horizontal, 24)
+                        transactionsSection
                         
                         // Perfil
-                        VStack(spacing: 8) {
-                            HStack {
-                                Image(systemName: "person.circle.fill")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.blue)
-                                VStack(alignment: .leading) {
-                                    Text(authViewModel.currentUser?.email ?? "Invitado")
-                                        .font(.headline)
-                                    // Removed ID display
-                                }
-                                Spacer()
-                            }
-                            .padding()
-                        }
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
-                        .padding(.horizontal, 24)
+                        profileSection
                     }
                     .padding(.vertical, 24)
-                    .onAppear {
-                        loadPersistedStateForCurrentUser()
-                    }
+                }
+                
+                if bankViewModel.isLoading {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(.white)
                 }
             }
             .navigationTitle("Inicio")
-            .alert("Éxito", isPresented: $authViewModel.showSuccess) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(authViewModel.successMessage ?? "")
+            .task {
+                if let user = authViewModel.currentUser {
+                    await bankViewModel.setupUser(user: user)
+                }
             }
-            .alert("Error", isPresented: $authViewModel.showError) {
+            .alert("Éxito", isPresented: $bankViewModel.showSuccess) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(authViewModel.errorMessage ?? "")
+                Text(bankViewModel.successMessage ?? "")
+            }
+            .alert("Error", isPresented: $bankViewModel.showError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(bankViewModel.errorMessage ?? "")
             }
             .sheet(isPresented: $showTransferSheet) {
-                NavigationView {
-                    VStack(spacing: 16) {
-                        Text("Nueva Transferencia")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        
-                        TextField("Cantidad", text: $transferAmountText)
-                            .keyboardType(.decimalPad)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                        
-                        HStack {
-                            Button("Cancelar") {
-                                showTransferSheet = false
-                                transferAmountText = ""
-                            }
-                            .buttonStyle(.bordered)
-                            
-                            Button(isProcessingTransfer ? "Procesando..." : "Confirmar") {
-                                performTransfer()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(isProcessingTransfer)
-                        }
-                        .padding(.top, 8)
-                        
-                        Spacer()
-                    }
-                    .padding()
-                    .navigationTitle("Transferir")
-                    .navigationBarTitleDisplayMode(.inline)
-                }
+                transferSheet
             }
             .sheet(isPresented: $showDepositSheet) {
-                NavigationView {
-                    VStack(spacing: 16) {
-                        Text("Nuevo Depósito")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        
-                        TextField("Cantidad", text: $depositAmountText)
-                            .keyboardType(.decimalPad)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                        
-                        HStack {
-                            Button("Cancelar") {
-                                showDepositSheet = false
-                                depositAmountText = ""
-                            }
-                            .buttonStyle(.bordered)
-                            
-                            Button(isProcessingDeposit ? "Procesando..." : "Confirmar") {
-                                performDeposit()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(isProcessingDeposit)
-                        }
-                        .padding(.top, 8)
-                        
-                        Spacer()
-                    }
-                    .padding()
-                    .navigationTitle("Depositar")
-                    .navigationBarTitleDisplayMode(.inline)
-                }
+                depositSheet
             }
             .sheet(isPresented: $showWithdrawSheet) {
-                NavigationView {
-                    VStack(spacing: 16) {
-                        Text("Nuevo Retiro")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        
-                        TextField("Cantidad", text: $withdrawAmountText)
-                            .keyboardType(.decimalPad)
+                withdrawSheet
+            }
+        }
+    }
+    
+    // MARK: - Header Section
+    
+    private var headerSection: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hola,")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                Text(authViewModel.displayName)
+                    .font(.title)
+                    .fontWeight(.bold)
+            }
+            Spacer()
+            Button(action: {
+                authViewModel.signOut()
+            }) {
+                HStack {
+                    Image(systemName: "rectangle.portrait.and.arrow.forward")
+                    Text("Cerrar sesión")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.horizontal, 24)
+    }
+    
+    // MARK: - Balance Card
+    
+    private var balanceCard: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Saldo total")
+                    .font(.headline)
+                Spacer()
+                if bankViewModel.cards.count > 1 {
+                    Text("\(bankViewModel.cards.count) tarjetas")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            HStack(alignment: .firstTextBaseline) {
+                Text(bankViewModel.formattedTotalBalance)
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                Spacer()
+            }
+            
+            HStack(spacing: 12) {
+                actionButton(icon: "arrow.up.right.circle.fill", title: "Transferir") {
+                    showTransferSheet = true
+                }
+                actionButton(icon: "plus.circle.fill", title: "Depositar") {
+                    showDepositSheet = true
+                }
+                actionButton(icon: "minus.circle.fill", title: "Retirar") {
+                    showWithdrawSheet = true
+                }
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
+        .padding(.horizontal, 24)
+    }
+    
+    // MARK: - Transactions Section
+    
+    private var transactionsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Últimos movimientos")
+                .font(.headline)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+            
+            if bankViewModel.recentTransactions.isEmpty {
+                emptyTransactionsView
+            } else {
+                ForEach(bankViewModel.recentTransactions.prefix(10)) { tx in
+                    transactionRow(tx)
+                    Divider()
+                        .padding(.leading, 64)
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+        )
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 4)
+        .padding(.horizontal, 24)
+    }
+    
+    private var emptyTransactionsView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "doc.text")
+                .font(.system(size: 40))
+                .foregroundColor(.gray)
+            Text("No hay movimientos recientes")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+    
+    private func transactionRow(_ tx: Transaction) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: tx.icon)
+                .foregroundColor(tx.amountColor == "green" ? .green : .red)
+                .frame(width: 28)
+            
+            VStack(alignment: .leading) {
+                Text(tx.description)
+                    .fontWeight(.medium)
+                
+                if let relatedEmail = tx.relatedUserEmail {
+                    Text(tx.type == .received ? "De: \(relatedEmail)" : "A: \(relatedEmail)")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                } else {
+                    Text(dateFormatter.string(from: tx.date))
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                }
+            }
+            
+            Spacer()
+            
+            Text(tx.formattedAmount(showSign: true))
+                .fontWeight(.semibold)
+                .foregroundColor(tx.amountColor == "green" ? .green : .red)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
+    }
+    
+    // MARK: - Profile Section
+    
+    private var profileSection: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "person.circle.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(.blue)
+                VStack(alignment: .leading) {
+                    Text(authViewModel.currentUser?.email ?? "Invitado")
+                        .font(.headline)
+                }
+                Spacer()
+            }
+            .padding()
+        }
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
+        .padding(.horizontal, 24)
+    }
+    
+    // MARK: - Transfer Sheet
+    
+    private var transferSheet: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Nueva Transferencia")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                
+                // Buscar usuario
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Email del destinatario")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    HStack {
+                        TextField("correo@ejemplo.com", text: $recipientEmail)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.emailAddress)
                         
-                        HStack {
-                            Button("Cancelar") {
-                                showWithdrawSheet = false
-                                withdrawAmountText = ""
+                        Button(action: {
+                            Task {
+                                await bankViewModel.searchUser(byEmail: recipientEmail)
                             }
-                            .buttonStyle(.bordered)
-                            
-                            Button(isProcessingWithdraw ? "Procesando..." : "Confirmar") {
-                                performWithdraw()
+                        }) {
+                            if bankViewModel.isSearchingUser {
+                                ProgressView()
+                            } else {
+                                Text("Buscar")
                             }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(isProcessingWithdraw)
                         }
-                        .padding(.top, 8)
-                        
+                        .buttonStyle(.borderedProminent)
+                        .disabled(recipientEmail.isEmpty || bankViewModel.isSearchingUser)
+                    }
+                }
+                
+                // Usuario encontrado
+                if let searchedUser = bankViewModel.searchedUser {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        VStack(alignment: .leading) {
+                            Text(searchedUser.formattedDisplayName)
+                                .fontWeight(.semibold)
+                            Text(searchedUser.email)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                         Spacer()
                     }
                     .padding()
-                    .navigationTitle("Retirar")
-                    .navigationBarTitleDisplayMode(.inline)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(8)
+                    
+                    // Cantidad
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Cantidad a transferir")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        TextField("0.00", text: $transferAmountText)
+                            .keyboardType(.decimalPad)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    
+                    // Descripción
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Descripción (opcional)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        TextField("Concepto", text: $transferDescription)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    
+                    // Botones
+                    HStack {
+                        Button("Cancelar") {
+                            resetTransferForm()
+                            showTransferSheet = false
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button("Confirmar") {
+                            Task {
+                                await performTransfer()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(transferAmountText.isEmpty || bankViewModel.isLoading)
+                    }
+                    .padding(.top, 8)
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Transferir")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cerrar") {
+                        resetTransferForm()
+                        showTransferSheet = false
+                    }
                 }
             }
         }
     }
     
-    private var dateFormatter: DateFormatter {
-        let df = DateFormatter()
-        df.dateStyle = .medium
-        df.timeStyle = .short
-        return df
-    }
+    // MARK: - Deposit Sheet
     
-    private func formattedAmount(_ amount: Double) -> String {
-        let sign = amount >= 0 ? "+" : ""
-        return "\(sign)$\(String(format: "%.2f", amount))"
-    }
-    
-    // Persistencia local por usuario (UserDefaults)
-    private func persistStateForCurrentUser() {
-        guard let uid = authViewModel.currentUser?.id else { return }
-        let balanceKey = "balance_\(uid)"
-        let txKey = "transactions_\(uid)"
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        if let txData = try? encoder.encode(recentTransactions) {
-            UserDefaults.standard.set(txData, forKey: txKey)
-        }
-        UserDefaults.standard.set(balance, forKey: balanceKey)
-    }
-    
-    private func loadPersistedStateForCurrentUser() {
-        guard let uid = authViewModel.currentUser?.id else { return }
-        let balanceKey = "balance_\(uid)"
-        let txKey = "transactions_\(uid)"
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: balanceKey) != nil {
-            let savedBalance = defaults.double(forKey: balanceKey)
-            balance = savedBalance
-        }
-        if let data = defaults.data(forKey: txKey) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            if let savedTxs = try? decoder.decode([Transaction].self, from: data) {
-                recentTransactions = savedTxs
+    private var depositSheet: some View {
+        NavigationView {
+            VStack(spacing: 16) {
+                Text("Nuevo Depósito")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                
+                TextField("Cantidad", text: $depositAmountText)
+                    .keyboardType(.decimalPad)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                
+                HStack {
+                    Button("Cancelar") {
+                        showDepositSheet = false
+                        depositAmountText = ""
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button(bankViewModel.isLoading ? "Procesando..." : "Confirmar") {
+                        Task {
+                            await performDeposit()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(bankViewModel.isLoading || depositAmountText.isEmpty)
+                }
+                .padding(.top, 8)
+                
+                Spacer()
             }
+            .padding()
+            .navigationTitle("Depositar")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
     
-    private func performTransfer() {
-        guard !isProcessingTransfer else { return }
-        isProcessingTransfer = true
-        let raw = transferAmountText
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: ",", with: ".")
+    // MARK: - Withdraw Sheet
+    
+    private var withdrawSheet: some View {
+        NavigationView {
+            VStack(spacing: 16) {
+                Text("Nuevo Retiro")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                
+                TextField("Cantidad", text: $withdrawAmountText)
+                    .keyboardType(.decimalPad)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                
+                HStack {
+                    Button("Cancelar") {
+                        showWithdrawSheet = false
+                        withdrawAmountText = ""
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button(bankViewModel.isLoading ? "Procesando..." : "Confirmar") {
+                        Task {
+                            await performWithdraw()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(bankViewModel.isLoading || withdrawAmountText.isEmpty)
+                }
+                .padding(.top, 8)
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Retirar")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+    
+    // MARK: - Actions
+    
+    private func performTransfer() async {
+        guard let searchedUser = bankViewModel.searchedUser,
+              let primaryCard = bankViewModel.primaryCard else { return }
+        
+        let raw = transferAmountText.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
         guard let amount = Double(raw), amount > 0 else {
-            authViewModel.errorMessage = "Ingresa una cantidad válida mayor a $0"
-            authViewModel.showError = true
-            isProcessingTransfer = false
-            return
-        }
-        guard amount <= balance else {
-            authViewModel.errorMessage = "Saldo insuficiente para transferir $\(String(format: "%.2f", amount))"
-            authViewModel.showError = true
-            isProcessingTransfer = false
+            bankViewModel.errorMessage = "Ingresa una cantidad válida mayor a $0"
+            bankViewModel.showError = true
             return
         }
         
-        withAnimation {
-            balance -= amount
-            let tx = Transaction(title: "Transferencia", amount: -amount, date: Date(), icon: "arrow.up.right.circle.fill")
-            recentTransactions.insert(tx, at: 0)
-        }
-        persistStateForCurrentUser()
+        let description = transferDescription.isEmpty ? "Transferencia a \(searchedUser.formattedDisplayName)" : transferDescription
         
-        authViewModel.successMessage = "Transferencia realizada por $\(String(format: "%.2f", amount))"
-        authViewModel.showSuccess = true
-        transferAmountText = ""
+        await bankViewModel.transferToUser(
+            fromCardId: primaryCard.id,
+            toUser: searchedUser,
+            amount: amount,
+            description: description
+        )
+        
+        resetTransferForm()
         showTransferSheet = false
-        isProcessingTransfer = false
     }
     
-    private func performDeposit() {
-        guard !isProcessingDeposit else { return }
-        isProcessingDeposit = true
-        let raw = depositAmountText
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: ",", with: ".")
+    private func performDeposit() async {
+        guard let primaryCard = bankViewModel.primaryCard else { return }
+        
+        let raw = depositAmountText.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
         guard let amount = Double(raw), amount > 0 else {
-            authViewModel.errorMessage = "Ingresa una cantidad válida mayor a $0"
-            authViewModel.showError = true
-            isProcessingDeposit = false
+            bankViewModel.errorMessage = "Ingresa una cantidad válida mayor a $0"
+            bankViewModel.showError = true
             return
         }
         
-        withAnimation {
-            balance += amount
-            let tx = Transaction(title: "Depósito", amount: amount, date: Date(), icon: "banknote.fill")
-            recentTransactions.insert(tx, at: 0)
-        }
-        persistStateForCurrentUser()
+        await bankViewModel.performDeposit(amount: amount, cardId: primaryCard.id)
         
-        authViewModel.successMessage = "Depósito realizado por $\(String(format: "%.2f", amount))"
-        authViewModel.showSuccess = true
         depositAmountText = ""
         showDepositSheet = false
-        isProcessingDeposit = false
     }
     
-    private func performWithdraw() {
-        guard !isProcessingWithdraw else { return }
-        isProcessingWithdraw = true
-        let raw = withdrawAmountText
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: ",", with: ".")
+    private func performWithdraw() async {
+        guard let primaryCard = bankViewModel.primaryCard else { return }
+        
+        let raw = withdrawAmountText.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
         guard let amount = Double(raw), amount > 0 else {
-            authViewModel.errorMessage = "Ingresa una cantidad válida mayor a $0"
-            authViewModel.showError = true
-            isProcessingWithdraw = false
-            return
-        }
-        guard amount <= balance else {
-            authViewModel.errorMessage = "Saldo insuficiente para retirar $\(String(format: "%.2f", amount))"
-            authViewModel.showError = true
-            isProcessingWithdraw = false
+            bankViewModel.errorMessage = "Ingresa una cantidad válida mayor a $0"
+            bankViewModel.showError = true
             return
         }
         
-        withAnimation {
-            balance -= amount
-            let tx = Transaction(title: "Retiro", amount: -amount, date: Date(), icon: "minus.circle.fill")
-            recentTransactions.insert(tx, at: 0)
-        }
-        persistStateForCurrentUser()
+        await bankViewModel.performWithdraw(amount: amount, cardId: primaryCard.id)
         
-        authViewModel.successMessage = "Retiro realizado por $\(String(format: "%.2f", amount))"
-        authViewModel.showSuccess = true
         withdrawAmountText = ""
         showWithdrawSheet = false
-        isProcessingWithdraw = false
     }
+    
+    private func resetTransferForm() {
+        recipientEmail = ""
+        transferAmountText = ""
+        transferDescription = ""
+        bankViewModel.searchedUser = nil
+    }
+    
+    // MARK: - Helpers
     
     @ViewBuilder
     private func actionButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
@@ -438,8 +525,15 @@ struct HomeView: View {
         }
         .foregroundColor(.blue)
         .shadow(color: Color.black.opacity(0.04), radius: 3, x: 0, y: 2)
-}
-// Cierra la estructura HomeView antes del bloque de #Preview
+    }
+    
+    private var dateFormatter: DateFormatter {
+        let df = DateFormatter()
+        df.dateStyle = .medium
+        df.timeStyle = .short
+        df.locale = Locale(identifier: "es_MX")
+        return df
+    }
 }
 
 #Preview {

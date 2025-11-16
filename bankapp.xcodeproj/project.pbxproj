@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		5610A5282EB18D9200B0ED6C /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 5610A5272EB18D9200B0ED6C /* FirebaseAuth */; };
 		5610A52A2EB18D9200B0ED6C /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 5610A5292EB18D9200B0ED6C /* FirebaseFirestore */; };
+		568092812ECA7E0200788FDC /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 568092802ECA7E0200788FDC /* FirebaseDatabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				568092812ECA7E0200788FDC /* FirebaseDatabase in Frameworks */,
 				5610A5282EB18D9200B0ED6C /* FirebaseAuth in Frameworks */,
 				5610A52A2EB18D9200B0ED6C /* FirebaseFirestore in Frameworks */,
 			);
@@ -85,6 +87,7 @@
 				5610A4FC2EB189B600B0ED6C /* bankapp */,
 				5610A50A2EB189B700B0ED6C /* bankappTests */,
 				5610A5142EB189B700B0ED6C /* bankappUITests */,
+				5680927F2ECA7E0200788FDC /* Frameworks */,
 				5610A4FB2EB189B600B0ED6C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -97,6 +100,13 @@
 				5610A5112EB189B700B0ED6C /* bankappUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5680927F2ECA7E0200788FDC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -121,6 +131,7 @@
 			packageProductDependencies = (
 				5610A5272EB18D9200B0ED6C /* FirebaseAuth */,
 				5610A5292EB18D9200B0ED6C /* FirebaseFirestore */,
+				568092802ECA7E0200788FDC /* FirebaseDatabase */,
 			);
 			productName = bankapp;
 			productReference = 5610A4FA2EB189B600B0ED6C /* bankapp.app */;
@@ -592,6 +603,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5610A5262EB18D9200B0ED6C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		568092802ECA7E0200788FDC /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5610A5262EB18D9200B0ED6C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
